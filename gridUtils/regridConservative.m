@@ -2,6 +2,8 @@ function [ outputData, xData ] = regridConservative( inputData, xData )
 %REGRIDCONSERVATIVE Regrid data using a MAPL tile file
 %   xData can be generated using "readTileFile".
 
+global CSGridDir
+
 XYIn = size(inputData);
 XYIn = XYIn(1:2);
 if isstruct(xData)
@@ -45,10 +47,10 @@ else
     xData = sprintf('%s_%s.bin',inGrid,outGrid);
     iIn = 1;
     iOut = 2;
-    xFile = fullfile('GridData','TileFiles',xData);
+    xFile = fullfile(CSGridDir,'GridData','TileFiles',xData);
     if ~fastExist(xFile)
         xData = sprintf('%s_%s.bin',outGrid,inGrid);
-        xFile = fullfile('GridData','TileFiles',xData);
+        xFile = fullfile(CSGridDir,'GridData','TileFiles',xData);
         iIn = 2;
         iOut = 1;
         assert(fastExist(xFile),'regridConservative:tileFileNotFound',...

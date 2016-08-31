@@ -1,7 +1,7 @@
 function [ patchVec, mapAx ] = plotCSLayer( CSData, varargin )
 %PLOTCSLAYER Plots CS data onto map axes (horizontal layer)
 
-global REPODIR
+global CSGridDir
 
 % Is the CS data separated into faces?
 CSDims = size(CSData);
@@ -243,8 +243,8 @@ elseif plotStyle == iEdge
     % Do we have pre-calculated vertex data?
 %    vtxDataFile = fullfile('GridData','VertexData',...
 %        sprintf('VtxData_C%i.mat',nPerSide));
-    vtxDataFile = fullfile(REPODIR,'GridData','VertexData',...
-        sprintf('VtxData_Ci.mat',nPerSide))
+    vtxDataFile = fullfile(CSGridDir,'GridData','VertexData',...
+        sprintf('VtxData_Ci.mat',nPerSide));
     % Allow for cube offset
     lonMatName = sprintf('lonMat_Offset%d',offsetCube);
     latMatName = sprintf('latMat_Offset%d',offsetCube);
