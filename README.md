@@ -20,10 +20,15 @@ Extract a variable from a GCHP output file, say 'testData'. For the moment,
 generate an arbitrary one with the dimensions of a C24 simulation, e.g.
 
  > testData = zeros(24,144,72);
+
  > for iFace=1:6
+
  >    for iLayer = 1:72
+
  >       testData(:,(1:24)+(iFace-1)*24,iLayer) = iFace*iLayer;
+
  >    end
+
  > end
 
 Note that the dimensions of a cubed sphere file with side length NX, NZ layers,
