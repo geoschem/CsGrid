@@ -21,9 +21,9 @@ generate an arbitrary one with the dimensions of a C24 simulation, e.g.
 
     testData = zeros(24,144,72);
     for iFace=1:6
-    for iLayer = 1:72
-    testData(:,(1:24)+(iFace-1)*24,iLayer) = iFace*iLayer;
-    end
+      for iLayer = 1:72
+        testData(:,(1:24)+(iFace-1)*24,iLayer) = iFace*iLayer;
+      end
     end
 
 Note that the dimensions of a cubed sphere file with side length NX, NZ layers,
@@ -35,7 +35,7 @@ _____________________________________________________________________________
 
 Plot the data in its native format using the plotCSLayer function. For example:
 
- > plotCSLayer(testData(:,:,1),'projection','flat');
+    plotCSLayer(testData(:,:,1),'projection','flat');
 
 _____________________________________________________________________________
 
@@ -45,7 +45,7 @@ There's no sensible way to plot the global variation of quantities with
 height in a cubed-sphere grid other than to do some regridding. To regrid from 
 C24 to 2x2.5, run:
 
- > LLData = regridConservative(testData,genGridSpec('gmao2x25','geos5'));
+    LLData = regridConservative(testData,genGridSpec('gmao2x25','geos5'));
 
 _____________________________________________________________________________
 
@@ -54,7 +54,7 @@ _____________________________________________________________________________
 You can then plot it either using your preferred functions or using those that 
 I've packaged here, e.g.
 
- > plotGrid(LLData,'zonal');
+    plotGrid(LLData,'zonal');
 
 _____________________________________________________________________________
 
@@ -62,7 +62,7 @@ _____________________________________________________________________________
 
 To get one layer of the regridded data, run:
 
- > plotGrid(LLData(:,:,1),'layer');
+    plotGrid(LLData(:,:,1),'layer');
 
 _____________________________________________________________________________
 
@@ -70,20 +70,20 @@ _____________________________________________________________________________
 
 To get lat-lon statistics, run:
 
- > gSpec = genGridSpec('gmao2x25','geos5'); 
+    gSpec = genGridSpec('gmao2x25','geos5'); 
 
 This will generate a file with a custom "grid specification" class (used 
 implicitly in the regridding, earlier). You can then get the latitude edges, 
 longitude edges and grid cell areas from:
 
- > gSpec.latEdge
- > gSpec.lonEdge
- > gSpec.gridArea
+    gSpec.latEdge
+    gSpec.lonEdge
+    gSpec.gridArea
 
 To get the equivalent data for the cubed-sphere, run:
 
- > [lonEdge,latEdge] = calcCSGrid(24); 
- > gridArea = calcCSArea(lonEdge,latEdge); 
+    [lonEdge,latEdge] = calcCSGrid(24); 
+    gridArea = calcCSArea(lonEdge,latEdge); 
 
 The total area from the CS grid and the lat-lon grid should be equal to 
 within some very large number of decimal places.
