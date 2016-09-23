@@ -244,7 +244,7 @@ elseif plotStyle == iEdge
 %    vtxDataFile = fullfile('GridData','VertexData',...
 %        sprintf('VtxData_C%i.mat',nPerSide));
     vtxDataFile = fullfile(CSGridDir,'GridData','VertexData',...
-        sprintf('VtxData_Ci.mat',nPerSide));
+        sprintf('VtxData_C%i.mat',nPerSide));
     % Allow for cube offset
     lonMatName = sprintf('lonMat_Offset%d',offsetCube);
     latMatName = sprintf('latMat_Offset%d',offsetCube);
