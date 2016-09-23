@@ -1,112 +1,184 @@
 %====================================================
 % compare_hp_to_classic.m
 %
-% Script to do basic comparison between GCHP and GEOS-Chem Classic output
+% Script to do basic comparison between GCHP and GEOS-Chem Classic outputs
 % using S. Eastham's CSGrid matlab toolbox (https://bitbucket.org/gcst/csgrid)
 %
 % E. Lundgren, 9/6/16
 %====================================================
 clear all; close all;
 
-global CSGridDir;
+global CSGridDir
+format long
 
-% Working directory
-workdir = pwd;
+%-------------------
+% Configurables
+%-------------------
 
-% GCHP home directory
-homedir = '/n/regal/jacob_lab/elundgren/GCHP/';
+% Define species of interest (may include O3, NO, CO, NO2)
+spclist = {'O3', 'NO'};
 
-% GC run directories (GCHP and Classic)
-dir_hp = [homedir, 'testruns/gchp_4x5_tropchem/OutputDir/'];
-dir_cc = [homedir, 'testruns/geosfp_4x5_tropchem_classic/'];  
-
-% Output netcdf files to compare
-file_hp_cs = [dir_hp, 'GCHP.center.20130701.nc4'];
-file_hp_ll = [dir_hp, 'GCHP.regrid.20130701.nc4'];
-file_cc    = [dir_cc, 'GEOSCHEM_Diagnostics_Hrly.201307010100.nc'];
-
-% Add necessary paths
-CSGridDir = '/n/regal/jacob_lab/elundgren/GCHP/tools/CSGrid';
-addpath(genpath(CSGridDir));
-
-% Define species of interest for each file
-spclist = {'O3','NO','CO','NO2'};
-
-% Define level of interest, where index increases starting at the surface
-% NOTE: This requires GCHP data to be vertically inverted which is done below
+% Define level of interest, where index increases starting at the surface.
+% This must be scalar. NOTE: This requires GCHP data to be vertically 
+% inverted which is done below.
 lev = 1;
 
-% Declare structures to store data
-hp_cs = struct;
-hp_ll = struct;
-cc    = struct;
-spc   = struct;
+% Define run directory suffixes for runs you did (same for GCHP and classic)
+% These are also used as structure field names so choose wisely!
+% My current runs include:
+%   std    : out of the box settings
+%   noET   : no emissions or transport
+%   noETDD : no emissions, transport, or drydep
+run_suffix = {'noETDD', 'std', 'noET', 'noETDDC'};
 
-% Read raw data for species of interest
-for i = 1:length(spclist);
+% Choose which ones to include
+gchp_cubedsphere_on = true;
+gchp_latlon_on      = true;
+classic_on          = true;
 
-  % Make local variable for species
-  var = spclist{i};
+% Choose whether to plot data (will plot all runs, all species, at level lev)
+plots_on = false;
 
-  % Declare structures
-  hp_cs.(var) = struct;
-  hp_ll.(var) = struct;
-  cc.(var) = struct;
+% Define run directory prefixes for runs you did. Use the same prefix
+% all GCHP runs, and the same prefix for GC classic runs.
+hp_run_prefix = 'hp_4x5_trop_';
+cc_run_prefix = 'classic_4x5_trop_';
 
-  % Read raw data for that variable
-  hp_cs.(var).data = ncread(file_hp_cs, ['TRC_', var]);
-  hp_ll.(var).data = ncread(file_hp_ll, ['TRC_', var]);
-  cc.(var).data    = ncread(file_cc,    ['TRACER_CONC_', var]);
-  
-  % ***IMPORTANT!!!*** Vertically invert the data (GCHP only)
-  hp_cs.(var).data = flip(hp_cs.(var).data,3);
-  hp_ll.(var).data = flip(hp_ll.(var).data,3);
+% Testruns directory, where all run directories are stored
+testdir = '/n/regal/jacob_lab/elundgren/GCHP/testruns/';
 
-  % Store min and max for each dataset
-  hp_cs.(var).min = min(hp_cs.(var).data(:));
-  hp_cs.(var).max = max(hp_cs.(var).data(:));
-  hp_ll.(var).min = min(hp_ll.(var).data(:));
-  hp_ll.(var).max = max(hp_ll.(var).data(:));
-  cc.(var).min    = min(cc.(var).data(:));
-  cc.(var).max    = max(cc.(var).data(:));
+% Local CSGrid repository location
+CSGridDir = '/n/regal/jacob_lab/elundgren/GCHP/tools/CSGrid';
 
-  % store min and max for each species
-  spc.(var) = struct;
-  spc.(var).min = min([hp_cs.(var).min   ...
-                       hp_ll.(var).min   ...
-                       cc.(var).min ]);
-  spc.(var).max = max([hp_cs.(var).max   ... 
-		       hp_ll.(var).max   ...
-		       cc.(var).max ]);
+%---------------------------------------------------------
+% The rest... don't need to change unless adding features
+%---------------------------------------------------------
+
+% Add CSGrid path
+addpath(genpath(CSGridDir));
+
+% Output filenames
+fn_hp_cs = 'GCHP.center.20130701.nc4';
+fn_hp_ll = 'GCHP.regrid.20130701.nc4';
+fn_cc    = 'GEOSCHEM_Diagnostics_Hrly.201307010100.nc';
+
+% Define output file paths
+fpath_hp_cs = cell(3,1); % cubed-sphere GCHP output
+fpath_hp_ll = cell(3,1); % lat/lon GCHP output
+fpath_cc    = cell(3,1); % lat/lon GEOS-Chem classic output
+for i = 1:length(run_suffix);
+  fpath_hp_cs{i} = [testdir hp_run_prefix run_suffix{i} '/OutputDir/' fn_hp_cs];
+  fpath_hp_ll{i} = [testdir hp_run_prefix run_suffix{i} '/OutputDir/' fn_hp_ll];
+  fpath_cc{i}    = [testdir cc_run_prefix run_suffix{i} '/' fn_cc];
 end
 
-%-----------------------
-% Plot surface ozone
-%-----------------------
+% Declare structures to store data
+if gchp_cubedsphere_on; hp_cs = struct; end % cubed sphere GCHP output
+if gchp_latlon_on;      hp_ll = struct; end % lat/lon GCHP output (regridded)
+if classic_on;          cc    = struct; end % GC classic output
 
-var = 'O3';
+% initialize figure number
+h = 1;
 
-% Plot GCHP lat/lon O3 surface data
-figure(1)
-plotGrid(hp_ll.(var).data(:,:,1),'layer','projection','miller');
-colorbar;
-%caxis([spc.O3.min spc.O3.max]);
-title(['GCHP 4x5 regridded, surface ', var]);
+%------------------------------------------------------
+% Loop over runs and species to read/set data and plot
+%------------------------------------------------------
+for i =1:length(run_suffix);
+  
+  % Make local variable for this run configuration
+  run = run_suffix{i};
 
+  % Declare structures (fast so do for all)
+  if gchp_cubedsphere_on; hp_cs.(run) = struct; end
+  if gchp_latlon_on;      hp_ll.(run) = struct; end
+  if classic_on;          cc.(run)    = struct; end
+ 
+  % Read raw data for species of interest
+  for j = 1:length(spclist);
+  
+    % Make local variable for species
+    spc = spclist{j};
 
-% Plot GEOS-Chem Classic O3 surface data
-figure(2)
-plotGrid(cc.(var).data(:,:,1),'layer','projection','miller');
-colorbar;
-%caxis([spc.O3.min spc.O3.max]);
-title(['GEOS-Chem 4x5, surface ', var]);
+    % GCHP runs, cubed sphere output
+    if gchp_cubedsphere_on;
+      hp_cs.(run).(spc)      = struct;
+      hp_cs.(run).(spc).data = ncread(fpath_hp_cs{i}, ['TRC_', spc]);
+      hp_cs.(run).(spc).data = flip(hp_cs.(run).(spc).data,3);
+      hp_cs.(run).(spc).min  = min(hp_cs.(run).(spc).data(:));
+      hp_cs.(run).(spc).max  = max(hp_cs.(run).(spc).data(:));
+      hp_cs.(run).(spc).mean = mean(hp_cs.(run).(spc).data(:));
+      if plots_on;
+         figure(h)
+         titletext = 'GCHP cubed-sphere';
+         plotCSLayer(hp_cs.(run).(spc).data(:,:,lev),'projection','miller');
+         colorbar;
+         %caxis([spc.O3.min spc.O3.max]);
+         % NOTE: title not currently possible plotCSLayer?
+         h = h + 1;
+      end
+    end  
 
-%% GCHP cubed-sphere
-%figure(3)
-%titletext = 'GCHP cubed-sphere';
-%plotCSLayer(hp_cs.(var).data(:,:,1),'projection','miller');
-%colorbar;
-%%caxis([spc.O3.min spc.O3.max]);
+    % GCHP runs, lat/lon output
+    if gchp_latlon_on;
+      hp_ll.(run).(spc)      = struct;
+      hp_ll.(run).(spc).data = ncread(fpath_hp_ll{i}, ['TRC_', spc]);
+      hp_ll.(run).(spc).data = flip(hp_ll.(run).(spc).data,3);      
+      hp_ll.(run).(spc).min  = min(hp_ll.(run).(spc).data(:));
+      hp_ll.(run).(spc).max  = max(hp_ll.(run).(spc).data(:));
+      hp_ll.(run).(spc).mean = mean(hp_ll.(run).(spc).data(:));
+      if plots_on;
+        figure(h)
+        plotGrid(hp_ll.(run).(spc).data(:,:,lev), ...
+        	       'layer','projection','miller');
+        colorbar;
+        %caxis([spc.O3.min spc.O3.max]);
+        title(['GCHP 4x5 regridded, GC level ', num2str(lev), ...
+        	     ', ', spc, ', ', run]);
+        h = h + 1;
+      end
+    end  
+
+    % GEOS-Chem classic runs
+    if classic_on;
+      cc.(run).(spc)      = struct;      
+      cc.(run).(spc).data = ncread(fpath_cc{i}, ['TRACER_CONC_', spc]);
+      cc.(run).(spc).min  = min(cc.(run).(spc).data(:));
+      cc.(run).(spc).max  = max(cc.(run).(spc).data(:));
+      cc.(run).(spc).mean = mean(cc.(run).(spc).data(:));
+      if plots_on;
+        figure(h)
+        plotGrid(cc.(run).(spc).data(:,:,lev),'layer','projection','miller');
+        colorbar;
+        %caxis([spc.O3.min spc.O3.max]);
+        title(['GEOS-Chem 4x5, GC level ', num2str(lev), ...
+        	     ', ', spc, ', ', run]);
+        h = h + 1;
+      end
+    end  
+  end
+end
+
+%-------------------------------------- 
+% Print out mean values for comparison
+%--------------------------------------
+for i = 1:length(spclist);
+  spc = spclist{i};
+  fprintf('\nMean values for %s, level %d\n',spc,lev);
+  for j =1:length(run_suffix);
+    run = run_suffix{j};
+    fprintf(' Run %s\n',run); 
+    if gchp_cubedsphere_on; 
+      fprintf('   cubed sphere: %d\n',hp_cs.(run).(spc).mean); 
+    end
+    if gchp_latlon_on;      
+      fprintf('   cs regridded: %d\n',hp_ll.(run).(spc).mean); 
+    end
+    if classic_on;          
+      fprintf('   classic:      %d\n',cc.(run).(spc).mean); 
+    end
+  end
+end
+
 
 
 
