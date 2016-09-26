@@ -23,31 +23,40 @@ spclist = {'O3', 'NO'};
 % inverted which is done below.
 lev = 1;
 
-% Define run directory suffixes for runs you did (same for GCHP and classic)
-% These are also used as structure field names so choose wisely!
-% My current runs include:
-%   std    : out of the box settings
-%   noET   : no emissions or transport
-%   noETDD : no emissions, transport, or drydep
-run_suffix = {'noETDD', 'std', 'noET', 'noETDDC'};
-
-% Choose which ones to include
-gchp_cubedsphere_on = true;
-gchp_latlon_on      = true;
-classic_on          = true;
-
-% Choose whether to plot data (will plot all runs, all species, at level lev)
-plots_on = false;
-
 % Define run directory prefixes for runs you did. Use the same prefix
 % all GCHP runs, and the same prefix for GC classic runs.
 hp_run_prefix = 'hp_4x5_trop_';
 cc_run_prefix = 'classic_4x5_trop_';
 
-% Testruns directory, where all run directories are stored
+% Define run directory suffixes for runs you did (same for GCHP and classic)
+% These are also used as structure field names so choose wisely!
+% For example, this script is set for the following runs:
+%   std    : out of the box settings
+%   noET   : no emissions or transport
+%   noETDD : no emissions, transport, or drydep
+% This corresponds to GCHP run directories hp_4x5_trop_std, 
+% hp_4x5_trop_noET, etc, and GC classic run directories classic_4x5_trop_std,
+% classic_4x5_trop_noET, etc. 
+run_suffix = {'std', 'noET', 'noETDD'};
+
+% Choose which model outputs to include. This is where you can isolate
+% comparing only GCHP, or only classic.
+gchp_cubedsphere_on = true;
+gchp_latlon_on      = true;
+classic_on          = true;
+
+% Choose whether to plot data (will plot all runs, all species, at level lev)
+% NOTE: this can be slow. Best compare without plots first to look
+% at metrics.
+plots_on = false;
+
+% Choose what metrics to compare between runs. Currently min, max, or mean.
+metric = 'mean';
+
+% Testruns directory, where all your run directories are stored
 testdir = '/n/regal/jacob_lab/elundgren/GCHP/testruns/';
 
-% Local CSGrid repository location
+% Your local CSGrid repository location
 CSGridDir = '/n/regal/jacob_lab/elundgren/GCHP/tools/CSGrid';
 
 %---------------------------------------------------------
@@ -163,18 +172,18 @@ end
 %--------------------------------------
 for i = 1:length(spclist);
   spc = spclist{i};
-  fprintf('\nMean values for %s, level %d\n',spc,lev);
+  fprintf('\n%s values for %s, level %d\n',metric,spc,lev);
   for j =1:length(run_suffix);
     run = run_suffix{j};
     fprintf(' Run %s\n',run); 
     if gchp_cubedsphere_on; 
-      fprintf('   cubed sphere: %d\n',hp_cs.(run).(spc).mean); 
+      fprintf('   cubed sphere: %12.12d\n',hp_cs.(run).(spc).(metric)); 
     end
     if gchp_latlon_on;      
-      fprintf('   cs regridded: %d\n',hp_ll.(run).(spc).mean); 
+      fprintf('   cs regridded: %12.12d\n',hp_ll.(run).(spc).(metric)); 
     end
     if classic_on;          
-      fprintf('   classic:      %d\n',cc.(run).(spc).mean); 
+      fprintf('   classic:      %12.12d\n',cc.(run).(spc).(metric)); 
     end
   end
 end
