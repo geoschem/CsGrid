@@ -100,12 +100,15 @@ else
    y_dummy = xData(1).Yloc;
 end
 
-% (4) Mystery data variable
-if isfield(xData,'mysteryVar') && isempty(xData(1).mysteryVar);
-   mystery_var = repmat(-1.0, numPoints, 1);
-else
-   mystery_var= xData(1).mysteryVar;
-end
+% (4) Mystery data variable (by default, not written to file)
+%     NOTE: this is not read by MAPL so can be left out to save space. 
+%     However, it is needed if you are replicating a GMAO tilefile and 
+%     want identical files (e.g. matching checksums). 
+%if isfield(xData,'mysteryVar') && isempty(xData(1).mysteryVar);
+%   mystery_var = repmat(-1.0, numPoints, 1);
+%else
+%   mystery_var= xData(1).mysteryVar;
+%end
 
 %------------------------------------------------
 % Call local function to write to binary file
@@ -162,8 +165,8 @@ writeVar(fID, array_memSize, grid2_JJ, 'single');
 % Grid2 W
 writeVar(fID, array_memSize, grid2_W, 'single');
 
-% Mystery variable
-writeVar(fID, array_memSize, mystery_var, 'single');
+%% Mystery variable (turn off by default. see note above)
+%writeVar(fID, array_memSize, mystery_var, 'single');
 
 %--------------------------------------------------
 % Clean up
