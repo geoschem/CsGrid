@@ -124,23 +124,24 @@ CSdata_diff = ( CSdata_tempest - CSdata_GMAO ) ./ CSdata_bg;
 % Create tilefile with Tempest xData?
 %====================================
 prompt = 'Do you want to create a new tile file from the Tempest data? (y/n)\n';
-answer = input(prompt,'s')
+answer = input(prompt,'s');
 if strcmp(answer,'y');
    writeTileFile( tempestTileFile, xData_temp );
+
+   %=========================================================
+   % Disply GMAO and new Tempest tilefile info for validation
+   % NOTE: Tempest and GMAO numPoints differ in xData.
+   %       This is to be expected. However, they should be
+   %       approximately the same.
+   %=========================================================
+   xData_gmao = displayTileFile( [ gmaoPath, gmaoFile] );
+   xData_new  = displayTileFile( tempestTileFile );
 elseif strcmp(answer,'n');
-   fprintf('No tile file created');		 
+   fprintf('No tile file created\n');		 
 else
    error('not a valid answer');
 end
 
-%=========================================================
-% Disply GMAO and new Tempest tilefile info for validation
-% NOTE: Tempest and GMAO numPoints differ in xData.
-%       This is to be expected. However, they should be
-%       approximately the same.
-%=========================================================
-xData_gmao = displayTileFile( [ gmaoPath, gmaoFile] );
-xData_new  = displayTileFile( tempestTileFile );
 
 
 
