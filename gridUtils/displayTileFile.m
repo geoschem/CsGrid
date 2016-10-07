@@ -1,4 +1,4 @@
-function [ xData ] = exploreTileFile( tileFile )
+function [ xData ] = displayTileFile( tileFile )
 % EXPLORETILEFILE Read a MAPL regrid tile file for exploration/validation 
 %    Input: Path of the unformatted FORTRAN binary tilefile
 %    Output: xData struct array

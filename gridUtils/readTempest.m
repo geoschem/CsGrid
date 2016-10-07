@@ -1,164 +1,77 @@
-function [ xData ] = readTempest( tFile, NX, Nlon, Nlat )
-% READTEMPEST Read Tempest netcdf file lat/lon to cubed sphere 
+function [ xData ] = readTempest( Tfile, Nlon, Nlat, NX )
+% READTEMPEST Read Tempest netcdf file (lat/lon to cubed sphere) 
 %             regridding information to generate an xData struct array 
 %             that can generate a GCHP-compatible tile file when passed
 %             to writeTileFile().
 %
-%    Input:  (1) tFile: Tempest output netcdf file (full path)
-%            (2) NX:    cubed sphere side length
-%            (3) Nlon:  number longitudes
-%            (4) Nlat:  number latitudes
+%    Input:  (1) Tfile: Tempest output netcdf file (full path)
+%            (2) Nlon:  number longitudes
+%            (3) Nlat:  number latitudes
+%            (4) NX:    cubed sphere side length
 %
-%    Output: 1) xData:  struct array with same format created when reading
+%    Output: (1) xData: struct array with same format created when reading
 %                       a GMAO tile file using readTileFile.m
 %
-% NOTES: There is currently a stretching discrepancy between cubed sphere
+% NOTES: 
+%    (1) There is currently a stretching discrepancy between cubed sphere
 %        data sets created with GMAO vs Tempest mapping information.
+%    (2) Tempest output currently does not include half-polar options,
+%        so tilefiles created from xData will be of form DExPE_CFx6C.
 %
-% Lizzie Lundgren and Jaiwei Zhang
+% Lizzie Lundgren, 10/7/16
 
 %------------------------
 % Check that file exists
 %-----------------------
-assert(fastExist(tFile),'readTileFile:fileNotFound', ...
+assert(fastExist(Tfile),'readTempest:fileNotFound', ...
        'Tempest file does not exist');
-fID = fopen(tFile,'rb');
+fID = fopen(Tfile,'rb');
 cleanupFn = onCleanup(@()(fclose(fID)));
 
 %---------------------------------
-% Create xData struct array
+% Read file (lat/lon -> cs)
 %---------------------------------
-xCell = cell(2,1);
-xData = struct('Name', xCell, ...
-               'NX',   xCell, ...
-               'NY',   xCell, ...
-               'II',   xCell, ...
-               'JJ',   xCell, ...
-               'W',    xCell);
+L2C_L_1D = ncread( Tfile, 'col');
+L2C_C_1D = ncread( Tfile, 'row');
+L2C_S    = ncread( Tfile, 'S'  );
 
-%-----------
-% Read file
-%-----------
-fprintf('\nREADING TEMPEST FILE:\n');
-fprintf('  %s\n', tFile);
-L2C_L_1D = ncread(tFile,'col');
-L2C_C_1D = ncread(tFile,'row');
-L2C_S    = ncread(tFile,'S');
-
-%-------------------------------------
-% Convert 1D indexes to 2D subscripts
-%-------------------------------------
-L2C_L = zeros(length(L2C_L_1D), 2);
-L2C_C = zeros(length(L2C_C_1D),2);
+%---------------------------------
+% Create xData
+%---------------------------------
+numPoints = length(L2C_L_1D);
+lonStr = [repmat('0', 1, 4-length(num2str(Nlon))), num2str(Nlon)];
+latStr = [repmat('0', 1, 4-length(num2str(Nlat))), num2str(Nlat)];
+cStr   = [repmat('0', 1, 4-length(num2str(NX))),   num2str(NX)];
+LLname = ['DE' lonStr 'xPE' latStr];
+CSname = ['CF' cStr 'x6C'];
+xData = struct('Name', {LLname; CSname}, ...
+	       'NX',   {Nlon; NX},       ...
+	       'NY',   {Nlat; NX*6},     ...
+	       'II',   cell(2,1),        ...
+	       'JJ',   cell(2,1),        ...
+               'W',    cell(2,1));
 for i=1:numPoints
-    [L2C_L(i,1), L2C_L(i,2)] = ind2sub([Nlon,Nlat], L2C_L_1D(i));
-    [L2C_C(i,1), L2C_C(i,2)] = ind2sub([NX,NX*6], L2C_C_1D(i));
+    [xData(1).II(i), xData(1).JJ(i)] = ind2sub([Nlon,Nlat], L2C_L_1D(i));
+    [xData(2).II(i), xData(2).JJ(i)] = ind2sub([NX,NX*6], L2C_C_1D(i));
 end
+xData(1).W = L2C_S;
+xData(2).W = L2C_S; % do not use!
 
-%-------------------------------
-% Initialize xData
-%-------------------------------
-% lat/lon
-xData(1).Name = 'dummy';
-xData(1).NX   = Nlat;
-xData(1).NY   = Nlon;
-xData(1).II   = L2C_L(:,1);
-xData(1).JJ   = L2C_L(:,2);
-xData(1).W    = L2C_S;
-
-% cubed sphere
-xData(2).Name = 'dummy';
-xData(2).NX   = NX;
-xData(2).NY   = NX*6;
-xData(2).II   = L2C_C(:,1);
-xData(2).JJ   = L2C_C(:,2);
-xData(2).W    = L2C_S; % is it okay to do this? need to read in C2L data?
-
-%---------------------------
+%----------------------------------------------
+% Correct xData to match GMAO tilefile mapping
+%---------------------------------------------
 % Correct longitude shift
-%---------------------------
-indoffset = -2; % need to update this to be generic pi/18 shift (10 deg)
-xData(1).II = shiftIndexes(xData(1).II, indOffset, Nlon);
+%lonOffset = -2;
+lonOffset = -10/(360/Nlon);
+xData(1).II = shiftIndexes( xData(1).II, lonOffset, Nlon );
 
-%------------------------------------
-% Swap cubed sphere faces
-%------------------------------------
-newFaceVec = [4 5 1 2 6 3]; % index is current face, value is final face
-xData(2).JJ = swapCSFaces( xData(2).JJ, newFaceVec, NX );
+% Swap faces
+faceRemapping =  [4 5 1 2 6 3];
+xData(2) = swapCSFaces( xData(2), faceRemapping);
 
-%--------------------------
-% Transform faces
-%--------------------------
+% Flip face 6 in both dimensions
+xData(2) = flipCSFaces( xData(2), 6, '2d');
 
-% This commented out code will eventually replace the uncommented code below
-% Flip both dimensions of face 6 to rotate by 180 degrees
-% faces = 6;
-%xData(2).II = flipCSFace( xData(2).II, faces, NX );
-%xData(2).JJ = flipCSFace( xData(2).JJ, faces, NX);
-
-% Transpose and then flip JJ for faces 3, 4, and 5
-% faces = [3 4 5];
-%xData(2) = transposeCSFace( xData(2), faces, NX );
-%xData(2).JJ = flipCSFace( xData(2).JJ, faces, NX);
-
-csII = xData(2).II;
-csJJ = xData(2).JJ;
-csII_new = csII;
-csJJ_new = csJJ;
-
-% loop over cubed sphere faces
-for f=1:6;
-
-   % define new blocks for faces (f is orig, a is after)
-   if f==1; action='nothing'; end; % change 1:48 to 145:192
-   if f==2; action='nothing'; end; % etc
-   if f==3; action='rotate 90deg ccw'; end;
-   if f==4; action='rotate 90deg ccw'; end;
-   if f==5; action='rotate 90deg ccw'; end;
-   if f==6; action='rotate 180deg ccw'; end;
-
-   if strcmp(action,'nothing')
-       continue
-   end
-
-   % define the face block start and end indexes (e.g. 1 and 48 for f=1)
-   face_JJmin_ind = NX*(f-1)+1;
-   face_JJmax_ind = NX*f;
-   face_IImin_ind = 1;
-   face_IImax_ind = NX;
-
-   % get JJ indexes corresponding to this face
-   this_face_ind = find(csJJ >= face_JJmin_ind & ...
-			  csJJ <= face_JJmax_ind);
-
-   % Loop over all JJ indexes for this face		       
-   for j = 1:length(this_face_ind);
-
-       % flip the IIs and JJs for this face
-       if strcmp(action,'rotate 180deg ccw')
-           csJJ_new(this_face_ind(j)) = face_JJmin_ind + ...
-                    (face_JJmax_ind -  csJJ(this_face_ind(j)) );
-           csII_new(this_face_ind(j)) = face_IImin_ind + ...
-                    ( face_IImax_ind -  csII(this_face_ind(j)) );
-		                          
-       end	  
-
-       % Transose and then flip the JJs for this face
-       if strcmp(action,'rotate 90deg ccw')
-           csJJ(this_face_ind(j));
-           csII(this_face_ind(j));
-           face_JJmin_ind;
-           csII_new(this_face_ind(j)) = csJJ(this_face_ind(j)) ...
-                                        - face_JJmin_ind + 1;
-           csJJ_new(this_face_ind(j)) = face_JJmin_ind ...
-                                        + csII(this_face_ind(j)) - 1;
-           csII_new(this_face_ind(j)) = face_IImin_ind + ...
-                    (face_IImax_ind -  csII_new(this_face_ind(j)) );
-		                          
-       end	  
-   end 
-end
-
-% Update xData
-xData(2).II=csII_new;
-xData(2).JJ=csJJ_new;
+% Transpose and flip (II only) faces 3-5
+xData(2) = transposeCSFaces( xData(2), [3 4 5]);
+xData(2) = flipCSFaces( xData(2), [3 4 5], 'II');

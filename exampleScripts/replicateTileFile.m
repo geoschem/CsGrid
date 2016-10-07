@@ -24,7 +24,7 @@ tf_name_new = 'DC0144xPC0091_CF0024x6C_new.bin';
 tf_file_new = [tf_path_new, tf_name_new];
 
 % Read original tilefile, and store data in xData_orig
-xData_orig = exploreTileFile(tf_file_orig);
+xData_orig = displayTileFile(tf_file_orig);
 
 % Create new tilefile that replicates the old by writing xData_orig
 s = writeTileFile( tf_file_new, xData_orig ); 
@@ -33,7 +33,7 @@ if s == 0;
   fprintf('Success!\n');
 
   % Read new tilefile for validation
-  xData_new = exploreTileFile(tf_file_new);
+  xData_new = displayTileFile(tf_file_new);
 
 elseif s == 2;
   fprintf('Exiting replicateTileFile since tilefile already exists.\n');

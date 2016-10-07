@@ -77,24 +77,27 @@ grid2_W = xData(2).W;
 
 % Mystery fields that can be set to dummy values if not present in xData
 % since they not used by MAPL. These xData fields are set if reading in
-% a GMAO tilefile using exploreTileFile.m.
+% a GMAO tilefile using displayTileFile.m.
 
 %  (1) Type
-if isfield(xData,'Type') && isempty(xData(1).Type);
+if ( isfield(xData,'Type') && isempty(xData(1).Type) ) ...
+    | ~isfield(xData(1),'Type');
    type_dummy = repmat(-1.0, numPoints, 1);
 else
    type_dummy = xData(1).Type;
 end
 
 % (2) X location
-if isfield(xData,'xLoc') && isempty(xData(1).Xloc);
+if ( isfield(xData,'xLoc') && isempty(xData(1).Xloc) ) ...
+   | ~isfield(xData(1),'xLoc');
    x_dummy = repmat(-1.0, numPoints, 1);
 else
    x_dummy = xData(1).Xloc;
 end
 
 % (3) Y location
-if isfield(xData,'yLoc') && isempty(xData(1).Yloc);
+if ( isfield(xData,'yLoc') && isempty(xData(1).Yloc) ) ...
+   | ~isfield(xData(1),'yLoc');
    y_dummy = repmat(-1.0, numPoints, 1);
 else
    y_dummy = xData(1).Yloc;

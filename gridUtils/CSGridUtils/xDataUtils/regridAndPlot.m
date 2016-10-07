@@ -8,23 +8,30 @@ function [ dataOut ] = regridAndPlot( dataIn, xDataIn, convDir, ...
 %            (2) xDataIn: xData structure array for the regridding (see note)
 %            (3) convDir: 'LL2CS' or 'CS2LL'
 %            (4) figTitle: title for figure
+%            (5) optional logical argument, turns off regridding if false
 %
-%    Output: (1) dataOut: conservatively regridded data
+%    Output: (1) dataOut: conservatively regridded data, or the input
+%                         data if regridding is turned off
 %
-%    NOTE: xDataIn must have lat/lon info in first struct, xDataIn(1),
-%          and cubed sphere info in second struct, xDataIn(2).
+%    NOTES: 
+%        (1) xDataIn must have lat/lon info in first struct, xDataIn(1),
+%            and cubed sphere info in second struct, xDataIn(2).
+%        (2) If regridding is skipped by passing optional 5th arg false,
+%            then assumes regridding has already occurred. Thus the input
+%            data must have dimensions of the expected regridded data,
+%            e.g. CS if passed 'LL2CS', or lat/lon if passed 'CS2LL'
 %
 % Lizzie Lundgren, 10/6/16
 
-%% allow user to turn off regridding with optional 5th argument (logical)
-% NOTE: this is not implemented yet
-%if nargin == 5
-%   regrid = varargin{1};
-%else
-%   regrid = true;  % regrid is true by default (on)
-%end
+% allow user to turn off regridding with optional 5th argument (logical)
+if nargin == 5
+   regrid = varargin{1};
+else
+   regrid = true;  % regrid is true by default (on)
+end
 
-% Conservatively regrid
+% Conservatively regrid. If regridding is skipped by passing false,
+% assumes input data is already regridded, e.g. in CS if passed 'LL2CS'
 if regrid
   [ dataOut, xDataOut ] = regridConservative( dataIn , xDataIn );
 else
@@ -43,6 +50,8 @@ elseif strcmp(convDir,'CS2LL')
 else
   error('Invalid conversion passed to regridAndPlot.m')
 end
+cbar_min = min(dataOut(:));
+cbar_max = max(dataOut(:));
 
 % Plot
 figure;
@@ -55,7 +64,7 @@ for i=1:numFaces
     end    
     surf(data_to_plot,'EdgeColor','None');
     colorbar
-    caxis([0,numFaces])
+    caxis([cbar_min,cbar_max])
     xlim([1,xlim_max])
     ylim([1,ylim_max])
     view(2); 
