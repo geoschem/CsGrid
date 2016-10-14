@@ -14,7 +14,7 @@ homeDir = '/n/home08/elundgren/GCHP/tools/';
 CSGridDir = [homeDir, 'CSGrid/'];
 
 % Choose what test to run (options are defined in gridParams)
-testid = 1;
+testid = 5;
 
 % Set test case grid parameters
 gridParams = [[72  46  48 ]; % test 1 lon, lat, cs
@@ -51,6 +51,11 @@ tempestTileFile = [homeDir, 'TileFiles/Tempest/' gmaoFile];
 
 addpath(genpath(CSGridDir));
 
+% To save plots:
+plotsdir = '~elundgren/GCHP/tools/Plots/Tempest_vs_GMAO_tilefiles/';
+addpath(genpath('~elundgren/matlab/export_fig'));
+addpath(genpath('~elundgren/matlab/b2r')); % for blue to red colormap
+
 %======================================================
 %  Generate fake reference CS data for testing
 %======================================================
@@ -58,14 +63,14 @@ CSdata_fake = zeros(NX,NX*6);
 
 % a "F"-like graph to check the cube-face orientation. Seems silly.. 
 F = zeros(NX,NX);
-Fwidth = 2; 
+Fwidth = fix(NX/15);
 minX = fix(NX/3);
 maxX = fix(NX*2/3);
 minY = fix(NX/4);
 midY = fix(NX/2);
 maxY = fix(NX*3/4);
-F( minX - Fwidth : minX + Fwidth, minY : maxY                   ) = 1;
-F( minX : maxX,                   midY - Fwidth : midY + Fwidth ) = 1;
+F( minX : minX + 2*Fwidth, minY : maxY                   ) = 1;
+F( minX : maxX,            midY - Fwidth : midY + Fwidth ) = 1;
 F( minX : maxX,                   maxY - Fwidth : maxY + Fwidth ) = 1;
 
 % Set background value to the panel number, include F in 'fake' data
@@ -88,6 +93,10 @@ for i=1:6
 end   
 suptitle('original cs')
 
+% Save figure
+filename = ['CSorig_', tempStr, '_c', NXStr]; 
+eval(['export_fig ', [plotsdir, filename], '.png -nocrop']); 
+
 %======================================================
 % Use existing GMAO tilefile for regridding
 %======================================================
@@ -95,11 +104,15 @@ xData_gmao = readTileFile([ gmaoPath, gmaoFile]);
 
 % regrid cubed sphere to lat/lon using GMAO tile file
 [ LLdata_ref ] = regridAndPlot( CSdata_fake , xData_gmao, 'CS2LL', ...
-			        'original cs --gmao--> lat/lon');
+			        'original cs --gmao--> lat/lon'); 
 
 % regrid lat/lon back to cubed sphere (reference)
 [ CSdata_GMAO ] = regridAndPlot( LLdata_ref, xData_gmao, 'LL2CS', ...
 			         'lat/lon --gmao--> cs (ref)');
+
+% Save figure
+filename = ['CSgmao_', tempStr, '_c', NXStr]; 
+eval(['export_fig ', [plotsdir, filename], '.png -nocrop']); 
 
 %==================================================
 % Read/transform Tempest LL2CS netcdf info to xData
@@ -112,13 +125,26 @@ xData_temp = readTempest( [tempestPath, tempestFile], Nlon, Nlat, NX);
 [ CSdata_tempest ] = regridAndPlot( LLdata_ref, xData_temp, 'LL2CS', ...
 				   'lat/lon --tempest--> cs (after fixes)');
 
+% Save figure
+filename = ['CStempest_', tempStr, '_c', NXStr]; 
+eval(['export_fig ', [plotsdir, filename], '.png -nocrop']); 
+
 %=======================================================================
 % Plot the regrid differences (Tempest - GMAO), normalized by background
 %=======================================================================
 CSdata_diff = ( CSdata_tempest - CSdata_GMAO ) ./ CSdata_bg;
 [ CSdata_diff ] = regridAndPlot( CSdata_diff, xData_temp, 'LL2CS', ...
-				 'Regrid diff: Tempest CS - GMAO CS', ...
-				 false); % passing false skips regridding
+				 [num2str(Nlon) 'x' num2str(Nlat), ...
+				  ' -> ', NXStr, ...
+				  ': ( Tempest - GMAO ) / background'], ...
+				 false, true); 
+		                 % Last two args are optional:
+                                 % passing 1st arg as false skips regridding,
+		                 % passing 2nd arg as true uses blue to red cmap
+
+% Save figure
+filename = ['GMAO_vs_Tempest_', tempStr, '_c', NXStr]; 
+eval(['export_fig ', [plotsdir, filename], '.png -nocrop']); 
 
 %====================================
 % Create tilefile with Tempest xData?
@@ -128,12 +154,12 @@ answer = input(prompt,'s');
 if strcmp(answer,'y');
    writeTileFile( tempestTileFile, xData_temp );
 
-   %=========================================================
-   % Disply GMAO and new Tempest tilefile info for validation
+   %==========================================================
+   % Display GMAO and new Tempest tilefile info for validation
    % NOTE: Tempest and GMAO numPoints differ in xData.
    %       This is to be expected. However, they should be
    %       approximately the same.
-   %=========================================================
+   %==========================================================
    xData_gmao = displayTileFile( [ gmaoPath, gmaoFile] );
    xData_new  = displayTileFile( tempestTileFile );
 elseif strcmp(answer,'n');
