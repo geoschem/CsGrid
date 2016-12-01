@@ -20,15 +20,17 @@ addpath(genpath(CSGridDir));
 % Set grid parameters
 Nlon = 1440;
 Nlat = 720;
-NX   = 24;
+NX   = 48;
+cellType = 'DE_PE';
 
 % Set Tempest LL2CS netcdf info
 % NOTE: files created using ~elundgren/GCHP/tools/Tempest/runTempest.sh
-%       with unaltered tempestremap copied from /n/home03/zhuangjw/test/.
-%       I sourced the GCHP bashrc prior to compiling and running.
+%       with tempestremap repo in that directory. Open runTempest.sh for
+%       instrunctions on which commit to compile to generate input for this
+%       script.
 tempStr = ['lon' num2str(Nlon) '_lat' num2str(Nlat)];
 NXStr = num2str(NX);
-tempestPath = [homeDir, 'Tempest/output/' tempStr '_c' NXStr '/'];
+tempestPath = [homeDir, 'Tempest/output/' cellType '/' tempStr '_c' NXStr '/'];
 tempestFile =  [tempStr '-to-c' NXStr '_MAP.nc'];
 
 % Set Tempest tile file info
