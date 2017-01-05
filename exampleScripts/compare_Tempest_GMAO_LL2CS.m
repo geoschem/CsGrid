@@ -14,14 +14,17 @@ homeDir = '/n/home08/elundgren/GCHP/tools/';
 CSGridDir = [homeDir, 'CSGrid/'];
 
 % Choose what test to run (options are defined in gridParams)
-testid = 5;
+testid = 6;
 
 % Set test case grid parameters
 gridParams = [[72  46  48 ]; % test 1 lon, lat, cs
               [360 180 24 ]; % test 2 lon, lat, cs
               [360 180 48 ]; % etc
               [360 180 90 ];
-              [360 180 180]];
+              [360 180 180]
+              [144 91  24]];
+dateline='DC';
+polar='PC';
 
 % Set grid parameters for the chosen test case
 Nlon = gridParams( testid, 1 );
@@ -34,16 +37,15 @@ NX   = gridParams( testid, 3 );
 %       I sourced the GCHP bashrc prior to compiling and running.
 tempStr = ['lon' num2str(Nlon) '_lat' num2str(Nlat)];
 NXStr = num2str(NX);
-tempestPath = [homeDir, 'Tempest/output/' tempStr '_c' NXStr '/'];
-tempestFile =  [tempStr '-to-c' NXStr '_MAP.nc'];
+tempestPath = [homeDir, 'Tempest/output/' dateline '_' polar '/' tempStr '_c' NXStr '/'];
+tempestFile =  [tempStr '-to-c' NXStr '_MAP_' dateline '_' polar '.nc'];
 
 % Set GMAO tilefile info
-% NOTE: files copied from /n/regal/jacob_lab/mslong/ForSeb/
 gmaoPath = [homeDir, 'TileFiles/GMAO/'];
 lonStr = [repmat('0', 1, 4-length(num2str(Nlon))), num2str(Nlon)];
 latStr = [repmat('0', 1, 4-length(num2str(Nlat))), num2str(Nlat)];
 cStr   = [repmat('0', 1, 4-length(num2str(NX))),   num2str(NX)];
-gmaoFile = ['DE' lonStr 'xPE' latStr '_CF' cStr 'x6C.bin']; 
+gmaoFile = [dateline lonStr 'x' polar latStr '_CF' cStr 'x6C.bin']; 
 
 % Define Tempest tile file to write (you will be asked if you want to save)
 % NOTE: use same name as GMAO tilefile for ready compatibility with ExtData
@@ -117,7 +119,8 @@ eval(['export_fig ', [plotsdir, filename], '.png -nocrop']);
 %==================================================
 % Read/transform Tempest LL2CS netcdf info to xData
 %==================================================
-xData_temp = readTempest( [tempestPath, tempestFile], Nlon, Nlat, NX);
+xData_temp = readTempest( [tempestPath, tempestFile], Nlon, Nlat, NX, ...
+			 dateline, polar);
 
 %==================================================
 % Regrid lat/lon to CS to compare with reference

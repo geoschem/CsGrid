@@ -1,4 +1,4 @@
-function [ xData ] = readTempest( Tfile, Nlon, Nlat, NX )
+function [ xData ] = readTempest( Tfile, Nlon, Nlat, NX, dateline, polar )
 % READTEMPEST Read Tempest netcdf file (lat/lon to cubed sphere) 
 %             regridding information to generate an xData struct array 
 %             that can generate a GCHP-compatible tile file when passed
@@ -8,6 +8,8 @@ function [ xData ] = readTempest( Tfile, Nlon, Nlat, NX )
 %            (2) Nlon:  number longitudes
 %            (3) Nlat:  number latitudes
 %            (4) NX:    cubed sphere side length
+%            (5) dateline: DE or DC
+%            (6) polar: PE or PC
 %
 %    Output: (1) xData: struct array with same format created when reading
 %                       a GMAO tile file using readTileFile.m
@@ -16,7 +18,8 @@ function [ xData ] = readTempest( Tfile, Nlon, Nlat, NX )
 %    (1) There is currently a stretching discrepancy between cubed sphere
 %        data sets created with GMAO vs Tempest mapping information.
 %    (2) Tempest output currently does not include half-polar options,
-%        so tilefiles created from xData will be of form DExPE_CFx6C.
+%        so tilefiles created from xData will be of form 
+%        {dateline}x{polar}_CFx6C.
 %
 % Lizzie Lundgren, 10/7/16
 
@@ -42,7 +45,7 @@ numPoints = length(L2C_L_1D);
 lonStr = [repmat('0', 1, 4-length(num2str(Nlon))), num2str(Nlon)];
 latStr = [repmat('0', 1, 4-length(num2str(Nlat))), num2str(Nlat)];
 cStr   = [repmat('0', 1, 4-length(num2str(NX))),   num2str(NX)];
-LLname = ['DE' lonStr 'xPE' latStr];
+LLname = [dateline lonStr 'x' polar latStr];
 CSname = ['CF' cStr 'x6C'];
 xData = struct('Name', {LLname; CSname}, ...
 	       'NX',   {Nlon; NX},       ...
