@@ -4,7 +4,7 @@
 
 % NOTES:
 %  (1) It is intended to create tile files at resolutions that we do not have 
-%      from GAMO. 
+%      from GMAO. 
 %  (2) Use compare_Tempest_GMAO_LL2CS.m to see the differences between the
 %      Tempest and GMAO tile files for resolutions for which we have both.
 %
@@ -18,30 +18,31 @@ CSGridDir = [homeDir, 'CSGrid/'];
 addpath(genpath(CSGridDir));
 
 % Set grid parameters
-Nlon = 1440;
-Nlat = 720;
-NX   = 48;
-cellType = 'DE_PE';
+Nlon = 72;
+Nlat = 46;
+NX   = 24;
+dateline = 'DC';
+polar = 'PC';
 
 % Set Tempest LL2CS netcdf info
 % NOTE: files created using ~elundgren/GCHP/tools/Tempest/runTempest.sh
 %       with tempestremap repo in that directory. Open runTempest.sh for
-%       instrunctions on which commit to compile to generate input for this
-%       script.
+%       instructions on which commit to compile to generate input.
+cellType = [dateline '_' polar];
 tempStr = ['lon' num2str(Nlon) '_lat' num2str(Nlat)];
 NXStr = num2str(NX);
 tempestPath = [homeDir, 'Tempest/output/' cellType '/' tempStr '_c' NXStr '/'];
-tempestFile =  [tempStr '-to-c' NXStr '_MAP.nc'];
+tempestFile =  [tempStr '-to-c' NXStr '_MAP_' cellType '.nc'];
 
 % Set Tempest tile file info
 lonStr = [repmat('0', 1, 4-length(num2str(Nlon))), num2str(Nlon)];
 latStr = [repmat('0', 1, 4-length(num2str(Nlat))), num2str(Nlat)];
 cStr   = [repmat('0', 1, 4-length(num2str(NX))),   num2str(NX)];
-TileFileName = ['DE' lonStr 'xPE' latStr '_CF' cStr 'x6C.bin']; 
+TileFileName = [dateline lonStr 'x' polar latStr '_CF' cStr 'x6C.bin']; 
 tempestTileFile = [homeDir, 'TileFiles/Tempest/' TileFileName]; 
 
 % Create tile file
-xData_temp = readTempest( [tempestPath, tempestFile], Nlon, Nlat, NX);
+xData_temp = readTempest( [tempestPath, tempestFile], Nlon, Nlat, NX, dateline, polar);
 writeTileFile( tempestTileFile, xData_temp );
 
 % Display contents for validation
