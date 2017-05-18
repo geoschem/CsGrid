@@ -62,11 +62,15 @@ xData(2).W = L2C_S; % do not use!
 
 %----------------------------------------------
 % Correct xData to match GMAO tilefile mapping
+% SDE 2017-05-18: Do not use this! This only
+% worked when (nLon/36) was an integer. Now,
+% the necessary adjustments are made in
+% Tempest, so this code will give the wrong
+% answer if used.
 %---------------------------------------------
 % Correct longitude shift
-%lonOffset = -2;
-lonOffset = -10/(360/Nlon);
-xData(1).II = shiftIndexes( xData(1).II, lonOffset, Nlon );
+%lonOffset = -10/(360/Nlon);
+%xData(1).II = shiftIndexes( xData(1).II, lonOffset, Nlon );
 
 % Swap faces
 faceRemapping =  [4 5 1 2 6 3];
