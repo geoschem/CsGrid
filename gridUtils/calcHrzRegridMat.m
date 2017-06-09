@@ -1,233 +1,259 @@
-function [ xMatLon, xMatLat ] = calcHrzRegridMat( gSpecIn, modelOut, makeSparse )
-%CALCHRZREGRIDMAT MATLAB implementation of REGRID_A2A_MOD from GEOS-Chem
-%   Original routine by S-J Lin.
-%   Assumes a regular grid
+function [ xDataObj ] = calcHrzRegridMat( gSpecIn, gSpecOut, TFDir )
+%CALCHRZREGRIDMAT Retrieves or calculates conservative regridding weights
+% Can accept any combination of lat-lon grid specifications and
+% cubed-sphere specifier strings ('C180'). For anything other than a
+% conventional LL -> LL regrid, a tile file must be present in "TFDir.
+% If "TFDir" is not given, it is assumed that the relevant data can be
+% found in GridData/TileFiles.
 
-gSpecOut = gSpecIn.copy;
-if ischar(modelOut)
-    [ gSpecOut.lonStride,gSpecOut.latStride,gSpecOut.halfPolar,...
-        gSpecOut.center180,~,gSpecOut.lonLim,gSpecOut.latLim] ...
-        = parseGridHrz( modelOut );
-elseif isa(modelOut,'gridSpec')
-    %gSpecOut = modelOut;
-    gSpecOut.lonStride = modelOut.lonStride;
-    gSpecOut.latStride = modelOut.latStride;
-    gSpecOut.halfPolar = modelOut.halfPolar;
-    gSpecOut.center180 = modelOut.center180;
-    gSpecOut.lonLim = modelOut.lonLim;
-    gSpecOut.latLim = modelOut.latLim;
-    if modelOut.gridSpecial
-        gSpecOut.setSpecial(modelOut.lonEdge,modelOut.latEdge);
+% Validate inputs
+inParse = inputParser;
+inParse.addRequired('gSpecIn',@(x)isa(x,'gridSpec') || ischar(x) && strncmpi(x,'c',1));
+inParse.addRequired('gSpecOut',@(x)isa(x,'gridSpec') || ischar(x) && strncmpi(x,'c',1));
+inParse.parse(gSpecIn,gSpecOut);
+[nXIn,nYIn,CSIn,DCPCIn,bNameIn,NCNameIn] = determineGrid(gSpecIn);
+[nXOut,nYOut,CSOut,DCPCOut,bNameOut,NCNameOut] = determineGrid(gSpecOut);
+
+% Set up the output object
+xDataObj.gridIn = [nXIn,nYIn];
+xDataObj.gridOut = [nXOut,nYOut];
+% Placeholder
+xDataObj.xRegrid = [];
+
+% Do we need a tile file?
+needTF = (CSOut || CSIn);
+if needTF
+    if nargin < 3 || isempty(TFDir)
+        TFDir = fullfile('GridData','TileFiles');
     end
-else
-    error('regridHrz:badOutputGrid','Cannot parse output selection');
-end
-gSpecOut.regenGrid;
-
-nLonIn = gSpecIn.nLon;
-nLatIn = gSpecIn.nLat;
-
-% Check the input size
-nLonOut = gSpecOut.nLon;
-nLatOut = gSpecOut.nLat;
-lonEdgeIn = gSpecIn.lonEdge;
-latEdgeIn = gSpecIn.latEdge;
-lonEdgeOut = gSpecOut.lonEdge;
-latEdgeOut = gSpecOut.latEdge;
-sinLatIn = sind(latEdgeIn);
-sinLatOut = sind(latEdgeOut);
-
-% E-W regridding first
-if nLonIn == nLonOut
-    xMatLon = eye(nLonIn);
-else
-    xMatLon = lonRegrid(nLonIn,lonEdgeIn,nLonOut,lonEdgeOut);
-end
-
-if nLatIn == nLatOut
-    xMatLat = eye(nLatIn);
-else
-    xMatLat = latRegrid(nLatIn, sinLatIn, nLatOut, sinLatOut);
-end
-
-if makeSparse
-    xMatLat = sparse(xMatLat);
-    xMatLon = sparse(xMatLon);
-end
-
-end
-
-function [xMat] = lonRegrid(nLonIn,lonEdgeIn,nLonOut,lonEdgeOut)
-%LONREGRID MATLAB implementation of XMAP
-% MATLAB does not support FORTRAN-style negative indexing, hence the rather
-% tortured indexing
-% This function should take one specification and return a matrix, M. For
-% each column vector C_In with [N_In x 1] elements, one can then regrid by
-%   [      M     ] * [  C_In  ] = [  C_Out  ]
-%   [N_Out x N_In] * [N_In x 1] = [N_Out x 1]
-
-xVec = zeros(3*nLonIn + 2,1);
-dxVec = zeros(3*nLonIn + 1,1);
-xMat = zeros(nLonOut,nLonIn);
-
-xVec((1:(nLonIn+1))+nLonIn+1) = lonEdgeIn;
-dxVec((1:nLonIn)+nLonIn+1) = diff(xVec((1+nLonIn)+(1:(nLonIn+1))));
-
-% Ghosting?
-
-% Western edge
-found = false;
-iLonLow = 1;
-while ~found
-    if lonEdgeOut(1) >= xVec(iLonLow+nLonIn+1)
-        found = true;
+    assert(exist(TFDir,'dir') == 7,'calcHrzRegridMatGeneric:noTFDir',...
+        'Could not find tile files directory ''%s''',TFDir);
+    % Generate binary and NetCDF names in each direction
+    bNameI2O = sprintf('%s_%s.bin',bNameIn,bNameOut);
+    bNameO2I = sprintf('%s_%s.bin',bNameOut,bNameIn);
+    % NetCDF is a little trickier, as there is an assumption of only one
+    % lat-lon grid in the transform
+    if CSOut && CSIn
+        NCNameI2O = sprintf('%s-to-%s_MAP_GMAO.nc',NCNameIn,NCNameOut);
+        NCNameO2I = sprintf('%s-to-%s_MAP_GMAO.nc',NCNameOut,NCNameIn);
     else
-        iLonLow = iLonLow - 1;
-        if (iLonLow < -nLonIn)
-            error('lonregrid:badGhost','Ghosting check failed');
+        if CSOut
+            DCPCStr = DCPCIn;
         else
-            xVec(iLonLow+nLonIn+1) = xVec(iLonLow+1+nLonIn+1)-dxVec(nLonIn+iLonLow+nLonIn+1);
-            dxVec(iLonLow+nLonIn+1) = dxVec(nLonIn+iLonLow+nLonIn+1);
+            DCPCStr = DCPCOut;
+        end
+        NCNameI2O = sprintf('%s-to-%s_MAP_%s_GMAO.nc',NCNameIn,NCNameOut,DCPCStr);
+        NCNameO2I = sprintf('%s-to-%s_MAP_%s_GMAO.nc',NCNameOut,NCNameIn,DCPCStr);
+    end
+    % Add the root to everything
+    bNameI2O = fullfile(TFDir,bNameI2O);
+    bNameO2I = fullfile(TFDir,bNameO2I);
+    NCNameI2O = fullfile(TFDir,NCNameI2O);
+    NCNameO2I = fullfile(TFDir,NCNameO2I);
+    % Does the I2O tile file exist?
+    if (fastExist(NCNameI2O))
+        % Use Tempest NetCDF data (best)
+        xData = readTempest(NCNameI2O);
+    elseif (fastExist(bNameI2O))
+        xData = readTileFile(bNameI2O);
+    else
+        % Note: it doesn't actually matter that the regridding
+        % object is oriented incorrectly. This is handled in the
+        % applyHrzRegridMatGeneric routine
+        if (fastExist(NCNameO2I))
+            xData = readTileFile(NCNameO2I);
+        elseif (fastExist(bNameO2I))
+            xData = readTileFile(bNameO2I);
+        else
+            % Tell the user what Tempest settings to use
+            fprintf('%s%s%s\n',repmat('=',[1,20]),' ERROR ',repmat('=',[1,20]));
+            fprintf('Tile file could not be found.\n');
+            if xor(CSOut,CSIn)
+                if CSOut
+                    nCS = nXOut;
+                    gSpecLL = gSpecIn;
+                else
+                    nCS = nXIn;
+                    gSpecLL = gSpecOut;
+                end
+                nLon = gSpecLL.nLon;
+                nLat = gSpecLL.nLat;
+                isNested = gSpecLL.isNested;
+                if isNested
+                    DCArg = 'false';
+                    PCArg = 'false';
+                else
+                    if gSpecLL.center180
+                        DCArg = 'true';
+                    else
+                        DCArg = 'false';
+                    end
+                    if gSpecLL.halfPolar
+                        PCArg = 'true';
+                    else
+                        PCArg = 'false';
+                    end
+                end
+                fprintf('Relevant tile file can be generated as\nfollows using Tempest:\n');
+                if CSIn
+                    fprintf(' => isC2L:  true\n');
+                    fprintf(' => isL2C:  false\n');
+                elseif CSOut
+                    fprintf(' => isC2L:  false\n');
+                    fprintf(' => isL2C:  true\n');
+                end
+                fprintf(' => nLon:   %i\n',nLon);
+                fprintf(' => nLat:   %i\n',nLat);
+                fprintf(' => nC:     %i\n',nCS);
+                fprintf(' => isDC:   %s\n',DCArg);
+                fprintf(' => isPC:   %s\n',PCArg);
+                fprintf(' => isGMAO: true\n');
+                if isNested
+                    lonStart = mod(gSpecLL.lonEdge(1),360);
+                    lonStop = mod(gSpecLL.lonEdge(end),360);
+                    latStart = gSpecLL.latEdge(1);
+                    latStop = gSpecLL.latEdge(end);
+                    fprintf('Regional mask settings are also required:\n');
+                    fprintf(' => region='' --lon_begin %f --lon_end %f --lat_begin %f --lat_end %f\n',...
+                        lonStart,lonStop,latStart,latStop);
+                end
+            else
+                % Grid names are strings
+                fprintf('Tempest must be run to generate a %s to %s regridding file\n',gSpecIn,gSpecOut);
+            end
+            fprintf('Output file should be named %s and moved to %s\n',...
+                NCNameI2O,TFDir);
+            fprintf('%s%s%s\n',repmat('=',[1,20]),' ERROR ',repmat('=',[1,20]));
+            error('calcHrzRegridMatGeneric:TileFileMissing',...
+                'Could not find any tile files for the given configuration');
         end
     end
-end
-
-% Eastern edge
-found = false;
-iLonHigh = nLonIn+1;
-while ~found
-    if lonEdgeOut(end) <= xVec(iLonHigh+nLonIn+1)
-        found = true;
-    else
-        iLonHigh = iLonHigh + 1;
-        if (iLonHigh > 2*nLonIn)
-            error('lonregrid:badGhost','Ghosting check failed');
-        else
-            dxVec(iLonHigh+nLonIn) = dxVec(iLonHigh);
-            xVec(iLonHigh+nLonIn+1) = xVec(iLonHigh+nLonIn)+dxVec(iLonHigh+nLonIn);
-        end
-    end
-end
-
-dataVec = zeros(3*nLonIn + 1,1,'int32');
-dataVec(nLonIn+1) = nLonIn;
-dataVec((1:nLonIn)+nLonIn+1) = 1:nLonIn;
-dataVec(2*(nLonIn+1)) = 1;
+    % Convert the tile file to a regridding map
+    xDataObj.xRegrid = genRegridObj(xData);
+else
+    % Extract the important data
+    lonEdgeIn = gSpecIn.lonEdge;
+    latEdgeIn = gSpecIn.latEdge;
+    lonEdgeOut = gSpecOut.lonEdge;
+    latEdgeOut = gSpecOut.latEdge;
     
-% Ghosting?
-% Western edge
-if iLonLow <= 0
-    for iLonIn = iLonLow:0
-        dataVec(iLonIn+nLonIn+1) = nLonIn+iLonIn+nLonIn+1;
+    inSub = max(lonEdgeIn) - min(lonEdgeIn) < 359;
+    if inSub
+        % Input grid is not global
+        lonEdgeIn = [lonEdgeIn(end)-360, lonEdgeIn(:)'];
     end
-end
-
-% Eastern edge
-if iLonHigh > (nLonIn + 1)
-    for iLonIn = (nLonIn+1):(iLonHigh-1)
-        dataVec(iLonIn+nLonIn+1) = dataVec(iLonIn+1);
+    outSub = max(lonEdgeOut) - min(lonEdgeOut) < 359;
+    if outSub
+        % Output grid is not global
+        lonEdgeOut = [lonEdgeOut(end)-360, lonEdgeOut(:)'];
     end
-end
+    
+    % Call the regridding function to do the actual work
+    [xLon,xLat] = calcLLXMat(lonEdgeIn,latEdgeIn,...
+        lonEdgeOut,latEdgeOut);
+    
+    % Remove the padding cell if the range was not global
+    if inSub
+        xLon = xLon(:,2:end);
+    end
+    if outSub
+        xLon = xLon(2:end,:);
+    end
 
-iZero = iLonLow;
-for iLonOut = 1:nLonOut % i
-    found = false;
-    iLonIn = iZero;
-    while iLonIn <= (iLonHigh-1) && ~found % m
-        % Find eastern edge
-        found = lonEdgeOut(iLonOut) >= xVec(iLonIn+nLonIn+1) && lonEdgeOut(iLonOut) <= xVec(nLonIn+1+iLonIn+1);
-        if found
-            noNorm = (lonEdgeOut(iLonOut+1) <= xVec(iLonIn+1+nLonIn+1));
-            if noNorm
-                % Entire new grid is within original grid
-                %dataOut(iLonOut,iLatIn) = dataVec(iLonIn+nLonIn+1);
-                xMat(iLonOut,iLonIn) = 1;
-                iZero = iLonIn;
-            else
-                normVal = 1.0/(lonEdgeOut(iLonOut+1)-lonEdgeOut(iLonOut));
-                % Left-most fractional area
-                %dataSum = (xVec(iLonIn+1+nLonIn+1)-lonEdgeOut(iLonOut))*dataVec(iLonIn+nLonIn+1);
-                subLonInMod = mod(iLonIn-1,nLonIn)+1;
-                xMat(iLonOut,subLonInMod) = normVal*(xVec(iLonIn+1+nLonIn+1)-lonEdgeOut(iLonOut));
-                
-                subLonIn = iLonIn+1;
-                atEnd = false;
-                while subLonIn <= (iLonHigh-1) && ~atEnd % mm
-                    atEnd = ~(lonEdgeOut(iLonOut+1) > xVec(subLonIn+1+nLonIn+1));
-                    subLonInMod = mod(subLonIn-1,nLonIn)+1;
-                    if ~atEnd
-                        % Whole cell
-                        %dataSum = dataSum + dxVec(subLonIn+nLonIn+1)*dataVec(nLonIn+1+subLonIn);
-                        xMat(iLonOut,subLonInMod) = dxVec(subLonIn+nLonIn+1)*normVal;
-                    else
-                        % Right-most fractional area
-                        %dxTemp = lonEdgeOut(iLonOut+1) - xVec(subLonIn+nLonIn+1);
-                        xMat(iLonOut,subLonInMod) = (lonEdgeOut(iLonOut+1) - xVec(subLonIn+nLonIn+1))*normVal;
-                        %dataSum = dataSum + dxTemp*dataVec(subLonIn+nLonIn+1);
-                        iZero = subLonIn;
-                    end
-                    subLonIn = subLonIn + 1;
-                end
-            end
+    % Start conversion to a generic regridding object
+    % This is equivalent to genRegridObj for tile file data
+    nElIn = nXIn*nYIn;
+    nElOut = nXOut*nYOut;
+
+    % Loop over all elements in the xLon/xLat matrices
+    [xLonI,xLonJ,xLonW] = find(xLon);
+    [xLatI,xLatJ,xLatW] = find(xLat);
+    nLonX = length(xLonI);
+    nLatX = length(xLatI);
+    fromVec = zeros(nLonX*nLatX,1);
+    toVec = zeros(nLonX*nLatX,1);
+    WVec = zeros(nLonX*nLatX,1);
+    iPt = 0;
+    for iLonPt = 1:nLonX
+        % Current longitude match
+        lonTo = xLonI(iLonPt);
+        lonFrom = xLonJ(iLonPt);
+        lonWeight = xLonW(iLonPt);
+        for iLatPt = 1:nLatX
+            % Current latitude match
+            latTo = xLatI(iLatPt);
+            latFrom = xLatJ(iLatPt);
+            latWeight = xLatW(iLatPt);
+            % Add to indexing arrays
+            iPt = iPt + 1;
+            fromVec(iPt) = sub2ind([nXIn,nYIn],lonFrom,latFrom);
+            toVec(iPt) = sub2ind([nXOut,nYOut],lonTo,latTo);
+            WVec(iPt) = lonWeight*latWeight;
         end
-        iLonIn = iLonIn + 1;
     end
+    % Output
+    xDataObj.xRegrid = sparse(fromVec,toVec,WVec,nElIn,nElOut);
 end
 
 end
 
-function [xMat] = latRegrid(nLatIn, sinLatIn, nLatOut, sinLatOut)
-
-xMat = zeros(nLatOut,nLatIn);
-dyVec = diff(sinLatIn);
-
-jZero = 1;
-for jLatOut = 1:nLatOut
-    jLatIn = jZero;
-    sinSouth = sinLatOut(jLatOut);
-    found = false;
-    while jLatIn <= nLatIn && ~found
-        % Find southern edge
-        found = (sinSouth>=sinLatIn(jLatIn)) && sinSouth <= sinLatIn(jLatIn+1);
-        if found
-            noNorm = (sinLatOut(jLatOut+1) <= sinLatIn(jLatIn+1));
-            if noNorm
-                % Entirely within old gridcell
-                %dataOut(:,jLatOut) = dataIn(:,jLatIn);
-                xMat(jLatOut,jLatIn) = 1;
-                jZero = jLatIn;
-            else
-                % South-most fractional area
-                %dataSum = (sinLatIn(jLatIn+1)-sinLatOut(jLatOut)).*dataIn(:,jLatIn);
-                normVal = 1.0/(sinLatOut(jLatOut+1)-sinLatOut(jLatOut));
-                xMat(jLatOut,jLatIn) = (sinLatIn(jLatIn+1)-sinLatOut(jLatOut))*normVal;
-                subLatIn = jLatIn+1;
-                atEnd = false;
-                while subLatIn <= nLatIn && ~atEnd
-                    atEnd = ~(sinLatOut(jLatOut+1) > sinLatIn(subLatIn+1));
-                    if ~atEnd
-                        % Intermediate grid cell
-                        %dataSum = dataSum + dyVec(subLatIn).*dataIn(:,subLatIn);
-                        xMat(jLatOut,subLatIn) = dyVec(subLatIn).*normVal;
-                    else
-                        % North-most cell
-                        dyTemp = sinLatOut(jLatOut+1) - sinLatIn(subLatIn);
-                        %dataSum = dataSum + dyTemp.*dataIn(:,subLatIn);
-                        xMat(jLatOut,subLatIn) = dyTemp*normVal;
-                        jZero = subLatIn;
-                    end
-                    subLatIn = subLatIn + 1;
-                end
-            end
+function [nX,nY,isCS,DCPCStr,bName,NCName] = determineGrid(gSpec)
+if ischar(gSpec)
+    % Cubed-sphere grid
+    [nX,nY,bName,NCName] = parseCS(gSpec);
+    isCS = true;
+    % Other options do not apply
+    DCPCStr = '';
+else
+    %  Lat-lon grid
+    isCS = false;
+    [nX,nY,isPC,isDC,isUU,bName,NCName] = parseLL(gSpec);
+    if isUU || ~(isDC || isPC)
+        % Convention is to specify DEPE for non-global grids,
+        % but it's not strictly necessary
+        DCPCStr = 'DEPE';
+    else
+        if isDC
+            DChar = 'C';
+        else
+            DChar = 'E';
         end
-        jLatIn = jLatIn + 1;
+        if isPC
+            PChar = 'C';
+        else
+            PChar = 'E';
+        end
+        DCPCStr = sprintf('D%sP%s',DChar,PChar);
     end
 end
+end
 
-% Average over the polar bands
-%{
-dataOut(:,1) = sum(dataOut(:,1))/nLonIn;
-dataOut(:,end) = sum(dataOut(:,end))/nLonIn;
-%}
+function [nX,nY,bName,NCName] = parseCS(CSString)
+%PARSECS Read CS resolution integer from astring
+nCS = str2double(CSString(2:end));
+nX = nCS;
+nY = nCS * 6;
+% Name for binary files
+bName = sprintf('CF%04ix6C',nCS);
+% Name for NetCDF
+NCName = sprintf('c%i',nCS);
+end
 
+function [nX,nY,isPC,isDC,isUU,bName,NCName] = parseLL(gSpec)
+nX = gSpec.nLon;
+nY = gSpec.nLat;
+% Special considerations
+% Half-polar ('pole-centered') grid?
+isPC = gSpec.halfPolar;
+% Dateline-centered grid?
+isDC = gSpec.center180;
+% Name for binary files
+isUU = gSpec.isNested;
+if isUU
+    bName = genMAPLLLGridName([nX,nY]);
+else
+    bName = genMAPLLLGridName([nX,nY],isDC,isPC);
+end
+% Name for NetCDF
+NCName = sprintf('lon%i_lat%i',nX,nY);
 end

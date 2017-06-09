@@ -1,8 +1,8 @@
 function [ xData ] = readTileFile( tileFile )
 %READTILEFILE Read a MAPL regrid tile file
-%   Input is the path of the unformatted FORTRAN binart tile file. The
-%   output, xData, is intended for use with the "regridConservative"
-%   function.
+%   Input is the path of the unformatted FORTRAN binary tile file. The
+%   output, xData, is converted to a regridding object by the function
+%   "genRegridObj".
 
 assert(fastExist(tileFile),'readTileFile:fileNotFound','Tile file does not exist');
 fID = fopen(tileFile,'rb');
