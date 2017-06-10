@@ -1,4 +1,4 @@
-function [ xDataObj ] = calcHrzRegridMat( gSpecIn, gSpecOut, TFDir )
+function [ xDataObj, tData ] = calcHrzRegridMat( gSpecIn, gSpecOut, TFDir, varargin )
 %CALCHRZREGRIDMAT Retrieves or calculates conservative regridding weights
 % Can accept any combination of lat-lon grid specifications and
 % cubed-sphere specifier strings ('C180'). For anything other than a
@@ -10,9 +10,23 @@ function [ xDataObj ] = calcHrzRegridMat( gSpecIn, gSpecOut, TFDir )
 inParse = inputParser;
 inParse.addRequired('gSpecIn',@(x)isa(x,'gridSpec') || ischar(x) && strncmpi(x,'c',1));
 inParse.addRequired('gSpecOut',@(x)isa(x,'gridSpec') || ischar(x) && strncmpi(x,'c',1));
-inParse.parse(gSpecIn,gSpecOut);
+inParse.addParameter('genTiming',false,@(x)validateattributes(x,{'logical'},{'scalar'}));
+inParse.parse(gSpecIn,gSpecOut,varargin{:});
+genTiming = inParse.Results.genTiming;
+
+% Establish this whether or not it will be used
+if genTiming
+    tTimer = tic;
+    tData = addTiming(struct(),[],tTimer);
+else
+    tData = struct();
+end
+
 [nXIn,nYIn,CSIn,DCPCIn,bNameIn,NCNameIn] = determineGrid(gSpecIn);
 [nXOut,nYOut,CSOut,DCPCOut,bNameOut,NCNameOut] = determineGrid(gSpecOut);
+if genTiming
+    tData = addTiming(tData,'GridParse',tTimer);
+end
 
 % Set up the output object
 xDataObj.gridIn = [nXIn,nYIn];
@@ -22,6 +36,10 @@ xDataObj.xRegrid = [];
 
 % Do we need a tile file?
 needTF = (CSOut || CSIn);
+if genTiming
+    % Re-zero timer
+    tData = addTiming(tData,[],tTimer);
+end
 if needTF
     if nargin < 3 || isempty(TFDir)
         TFDir = fullfile('GridData','TileFiles');
@@ -128,8 +146,14 @@ if needTF
                 'Could not find any tile files for the given configuration');
         end
     end
+    if genTiming
+        tData = addTiming(tData,'ReadTileFile',tTimer);
+    end
     % Convert the tile file to a regridding map
     xDataObj.xRegrid = genRegridObj(xData);
+    if genTiming
+        tData = addTiming(tData,'GenRegrid',tTimer);
+    end
 else
     % Extract the important data
     lonEdgeIn = gSpecIn.lonEdge;
@@ -151,6 +175,9 @@ else
     % Call the regridding function to do the actual work
     [xLon,xLat] = calcLLXMat(lonEdgeIn,latEdgeIn,...
         lonEdgeOut,latEdgeOut);
+    if genTiming
+        tData = addTiming(tData,'CalcLLXMat',tTimer);
+    end
     
     % Remove the padding cell if the range was not global
     if inSub
@@ -195,6 +222,9 @@ else
     end
     % Output
     xDataObj.xRegrid = sparse(fromVec,toVec,WVec,nElIn,nElOut);
+    if genTiming
+        tData = addTiming(tData,'GenRegrid',tTimer);
+    end
 end
 
 end
@@ -258,4 +288,23 @@ else
 end
 % Name for NetCDF
 NCName = sprintf('lon%i_lat%i',nX,nY);
+end
+
+function tData = addTiming(tData,tName,tTimer)
+%ADDTIMING Add timing data to the tData struct
+%   If no tName is given (ie it is empty), the total is just updated
+currFields = fieldnames(tData);
+nullUpdate = isempty(tName);
+if isempty(currFields)
+    tData = struct('Total',0);
+elseif ~nullUpdate && ~any(strcmpi(currFields,tName))
+    assert(~strcmpi(tName,'Total'),'calcHrzRegridMat:invalidTimerName','Timer name must not be ''Total''');
+    tData.(tName) = 0;
+end
+tLast = tData.Total;
+tNew = toc(tTimer);
+tData.Total = tNew;
+if ~nullUpdate
+    tData.(tName) = tData.(tName) + tNew-tLast;
+end
 end
