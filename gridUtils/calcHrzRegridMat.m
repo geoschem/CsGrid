@@ -176,20 +176,22 @@ else
     iPt = 0;
     for iLonPt = 1:nLonX
         % Current longitude match
-        lonTo = xLonI(iLonPt);
-        lonFrom = xLonJ(iLonPt);
+        v1 = ones(size(xLatJ));
+        lonToVec = v1.*xLonI(iLonPt);
+        lonFromVec = v1.*xLonJ(iLonPt);
+        
+        % Assume cyclic
+        OOB = lonToVec > nXOut;
+        lonToVec(OOB) = lonToVec(OOB) - nXOut;
+        OOB = lonFromVec > nXIn;
+        lonFromVec(OOB) = lonFromVec(OOB) - nXIn;
+        
         lonWeight = xLonW(iLonPt);
-        for iLatPt = 1:nLatX
-            % Current latitude match
-            latTo = xLatI(iLatPt);
-            latFrom = xLatJ(iLatPt);
-            latWeight = xLatW(iLatPt);
-            % Add to indexing arrays
-            iPt = iPt + 1;
-            fromVec(iPt) = sub2ind([nXIn,nYIn],lonFrom,latFrom);
-            toVec(iPt) = sub2ind([nXOut,nYOut],lonTo,latTo);
-            WVec(iPt) = lonWeight*latWeight;
-        end
+        ptRange = iPt + (1:nLatX);
+        fromVec(ptRange) = sub2ind([nXIn,nYIn],lonFromVec,xLatJ);
+        toVec(ptRange) = sub2ind([nXOut,nYOut],lonToVec,xLatI);
+        WVec(ptRange) = lonWeight.*xLatW;
+        iPt = iPt + nLatX;
     end
     % Output
     xDataObj.xRegrid = sparse(fromVec,toVec,WVec,nElIn,nElOut);

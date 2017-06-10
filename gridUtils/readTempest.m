@@ -46,6 +46,9 @@ xData = struct( 'Name',{gNameIn;gNameOut},...
                 'II',cell(2,1),...
                 'JJ',cell(2,1),...
                 'W',SData );
+
+% The ind2sub function is much faster when called on a vector
+%{
             
 % How many points do we have?
 numPoints = length(colData);
@@ -57,10 +60,11 @@ for i=1:numPoints
     % with a factor
     %   Weight W(i)
     [xData(1).II(i), xData(1).JJ(i)] = ind2sub(gDimsIn, colData(i));
-    [xData(2).II(i), xData(2).JJ(i)] = ind2sub(gDimsOut, rowData(i));
+    [xData(2).II(i), xData(2).JJ(i)] = ind2sub(gDimsOut, rowData(i)); 
 end
-%xData(1).W = SData;
-%xData(2).W = SData; % do not use! (?)
+%}
+[xData(1).II,xData(1).JJ] = ind2sub(gDimsIn, colData);
+[xData(2).II,xData(2).JJ] = ind2sub(gDimsOut,rowData);
 
 % Change the cubed sphere indexing conventions to match GMAO
 faceRemapping =  [4 5 1 2 6 3];
