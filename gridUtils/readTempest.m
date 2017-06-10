@@ -112,10 +112,10 @@ else
             stopPt = length(dLat) - 1;
         end
         dLatNP = mean(dLat(2:stopPt));
-        if abs(dLatNP - (2*dLatP)) < 1e-12
-            PStr = 'C';
+        if abs(dLatNP - (2*dLatP)) < 1e-6
+            PStr = 'PC';
         else
-            PStr = 'E';
+            PStr = 'PE';
         end
         % Dateline-centered or pole-centered?
         %lonBnds = ncread(fPath,'lon_bnds');

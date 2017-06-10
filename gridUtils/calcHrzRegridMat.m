@@ -61,7 +61,7 @@ if needTF
         % object is oriented incorrectly. This is handled in the
         % applyHrzRegridMatGeneric routine
         if (fastExist(NCNameO2I))
-            xData = readTileFile(NCNameO2I);
+            xData = readTempest(NCNameO2I);
         elseif (fastExist(bNameO2I))
             xData = readTileFile(bNameO2I);
         else
