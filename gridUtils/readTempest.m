@@ -49,7 +49,6 @@ xData = struct( 'Name',{gNameIn;gNameOut},...
 
 % The ind2sub function is much faster when called on a vector
 %{
-            
 % How many points do we have?
 numPoints = length(colData);
 for i=1:numPoints
@@ -96,11 +95,16 @@ else
     % Need to figure out quite a lot of information. Retrieve the vertices
     % describing the grid for whichever is the lat-lon. Each cell is
     % described by 4 vertices, and the array has size [4,nCells]
-    latBnds = ncread(fPath,['yv_',gridChar]);
-    
-    % First - are we on a subgrid?
-    %latBnds = ncread(fPath,'lat_bnds');
-    if max(latBnds(:)) - min(latBnds(:)) < 179
+    % SDE 2017-06-10: The routine below is approximate, but very fast. A
+    % more rigorous alternative routine would be to read all vertex data
+    % from the file; however, this takes a very long time!
+    %latBnds = ncread(fPath,['yv_',gridChar]);
+    latCell = ncread(fPath,['yv_',gridChar],[1,1],[Inf,6]);
+    lonCell = ncread(fPath,['xv_',gridChar],[1,1],[Inf,6]);
+    dLon = median(max(lonCell,[],1)-min(lonCell,[],1));
+    % Assume constant spacing in longitude
+    % Are we on a subgrid?
+    if nEl(1) * dLon < 359
         DStr = 'UU';
         PStr = 'UU';
     else
@@ -108,7 +112,8 @@ else
         % "pole-centered" grid
         %dLat = latBnds(2,:) - latBnds(1,:);
         % Take the delta across the vertices
-        dLat = max(abs(diff(latBnds,[],1)),[],1);
+        %dLat = max(abs(diff(latBnds,[],1)),[],1);
+        dLat = max(abs(diff(latCell,[],1)),[],1);
         dLatP = dLat(1);
         if length(dLat) > 5
             stopPt = 4;
@@ -123,11 +128,12 @@ else
         end
         % Dateline-centered or pole-centered?
         %lonBnds = ncread(fPath,'lon_bnds');
-        lonBnds = reshape(ncread(fPath,['xv_',gridChar]),[],1);
+        %lonBnds = reshape(ncread(fPath,['xv_',gridChar]),[],1);
+        lonBnds = mod(lonCell(1) + cast(1:(nEl(1)+1),'double').*dLon,360);
         
         % If any of the longitude bounds are ~ 0, we are dateline-edged
-        lonMis = min(abs(mod(lonBnds(:),360)-360));
-        if lonMis < 1e-12
+        lonMis = min(lonBnds);
+        if lonMis < 1e-8
             DStr = 'DE';
         else
             DStr = 'DC';
