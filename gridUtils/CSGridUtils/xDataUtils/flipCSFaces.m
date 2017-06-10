@@ -13,19 +13,30 @@ function [ xDataOut ] = flipCSFaces( xDataIn, faceVec, faceDim )
 %              >> xData(2).II = flipCSFaces(xData(2).II, 6, 'II');
 %
 % Lizzie Lundgren, 9/29/16
+% SDE 2017-06-10: Efficiency improvements
 
 % Initialize
 xDataOut = xDataIn;
 f = 1;
 
 % Check that inputs are valid (in development)
-validDims={'II' 'JJ' '2d'};
-if ~any(ismember(validDims, faceDim))
-  error('invalid faceDim passed to flipCSFaces.m');
+if ischar(faceDim)
+    validDims={'II' 'JJ' '2d'};
+    faceDim = find(strcmpi(validDims,faceDim));
+    if ~isscalar(faceDim)
+      error('invalid faceDim passed to flipCSFaces.m');
+    end
+    if (faceDim==3) 
+        faceDim = 0;
+    end
+else
+    validateattributes(faceDim,{'numeric'},{'integer','nonnegative','<=',2});
 end
+flipII = any(faceDim==[0,1]);
+flipJJ = any(faceDim==[0,2]);
 
 % Loop over faces
-while f <= length(faceVec);
+while f <= length(faceVec)
   faceNum = faceVec(f);
   f = f+1;
 
@@ -42,14 +53,14 @@ while f <= length(faceVec);
   thisFaceInd = find( xDataIn.JJ >= minJJind & xDataIn.JJ <= maxJJind );
   
   % Loop over the elements found, flipping the user-specified dimension
-  for i = 1:length(thisFaceInd);
-    if strcmp(faceDim, 'JJ') | strcmp(faceDim, '2d');
-          xDataOut.JJ(thisFaceInd(i)) = minJJind + ( maxJJind ...
-				   - xDataIn.JJ(thisFaceInd(i)) );
+  for i = 1:length(thisFaceInd)
+    if flipJJ
+      xDataOut.JJ(thisFaceInd(i)) = minJJind + ( maxJJind ...
+               - xDataIn.JJ(thisFaceInd(i)) );
     end
-    if strcmp(faceDim, 'II') | strcmp(faceDim, '2d');
-          xDataOut.II(thisFaceInd(i)) = minIIind + ( maxIIind ...
-				   - xDataIn.II(thisFaceInd(i)) );
+    if flipII
+      xDataOut.II(thisFaceInd(i)) = minIIind + ( maxIIind ...
+               - xDataIn.II(thisFaceInd(i)) );
     end
   end 
 end
