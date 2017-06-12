@@ -93,7 +93,7 @@ if ~mapFound
                 targProj = 'Robinson';
             end
             if plotStyle == iEdge
-                mapAx = axesm('globe','geoid',3670e3);
+                mapAx = axesm('globe','geoid',[1 0]);
                 if ~isempty(axArgs)
                     set(mapAx,axArgs{:});
                 end
