@@ -68,6 +68,8 @@ if needTF
     bNameO2I = fullfile(TFDir,bNameO2I);
     NCNameI2O = fullfile(TFDir,NCNameI2O);
     NCNameO2I = fullfile(TFDir,NCNameO2I);
+    % Do we need to reverse I/O for the regridding object?
+    revI2O = false;
     % Does the I2O tile file exist?
     if (fastExist(NCNameI2O))
         % Use Tempest NetCDF data (best)
@@ -77,7 +79,9 @@ if needTF
     else
         % Note: it doesn't actually matter that the regridding
         % object is oriented incorrectly. This is handled in the
-        % applyHrzRegridMatGeneric routine
+        % applyHrzRegridMatGeneric routine. However, we should make the
+        % object consistent
+        revI2O = true;
         if (fastExist(NCNameO2I))
             xData = readTempest(NCNameO2I);
         elseif (fastExist(bNameO2I))
@@ -150,7 +154,11 @@ if needTF
         tData = addTiming(tData,'ReadTileFile',tTimer);
     end
     % Convert the tile file to a regridding map
-    xDataObj.xRegrid = genRegridObj(xData);
+    xTemp = genRegridObj(xData);
+    if revI2O
+        xTemp = xTemp';
+    end
+    xDataObj.xRegrid = xTemp;
     if genTiming
         tData = addTiming(tData,'GenRegrid',tTimer);
     end
