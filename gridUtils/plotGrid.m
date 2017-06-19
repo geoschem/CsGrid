@@ -192,7 +192,7 @@ while iArg <= nArg
                     error('plotGrid:badHandle','Specific figure handle does not exist.');
                 end
                 nPlus = 2;
-            case 'axhandle'
+            case {'ax','parent','axhandle'}
                 newAx = varargin{iArg+1};
                 if ishandle(newAx)
                     hAx = newAx;
