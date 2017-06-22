@@ -35,7 +35,8 @@ OKModels = {'GISSF','GISSM',...
     'GRUMP','GPW','LANDSCAN','LS',...
     '05x0666','025x03125',...
     '05x0666na','05x0666us','05x0666eu','05x0666ch',...
-    '025x03125na','025x03125us','025x03125se','025x03125ch'};
+    '025x03125na','025x03125us','025x03125se','025x03125ch',...
+    'F19','F09'};
 % Rejected:
 %   '025x03125eu'
 %   '05x0666se'
@@ -136,6 +137,17 @@ elseif length(resString) > 4 && ~stdRes
 else
     resString = miniString;
     switch (lower(resString))
+        case {'f09'}
+            % CAM 0.9x1.25 grid
+            error('parseGridHrz:f09NotReady','f09 grid resolution is not yet ready');
+        case {'f19'}
+            % CAM 1.9x2.5 grid
+            lonStride = 360/144;
+            latStride = 180/96;
+            halfPolar = false;
+            center180 = false;
+            lonLim = [0,360];
+            latLim = [-90,90];
         case {'gissx'}
             % NASA GISS extra fine (1x1)
             lonStride = 1;
@@ -148,7 +160,7 @@ else
             latStride = 2;
             halfPolar = false;
             center180 = false;
-        case {'gissm'};
+        case {'gissm'}
             % NASA GISS medium (4x5)
             lonStride = 5;
             latStride = 4;
