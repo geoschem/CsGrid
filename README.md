@@ -43,9 +43,20 @@ _____________________________________________________________________________
 
 There's no sensible way to plot the global variation of quantities with 
 height in a cubed-sphere grid other than to do some regridding. To regrid from 
-C24 to 2x2.5, run:
+C24 to 2x2.5, first generate a regridding object:
 
-    LLData = regridConservative(testData,genGridSpec('gmao2x25','geos5'));
+    xRegrid  calcHrzRegridMat('c24',genGridSpec('gmao2x25','geos5'));
+
+This object can then be used to rapidly regrid data between the two grids
+previously specified:
+
+    LLData = applyHrzRegridMat(testData,xRegrid);
+
+Regridding objects can be calculated analytically for conversions between
+any two rectangular, latitude-longitude grids, but for conversions between
+cubed-sphere and latitude-longitude grids a tile file is required. If the
+tile file cannot be found, the required configuration options for Tempest
+will be given.
 
 _____________________________________________________________________________
 
