@@ -49,6 +49,7 @@ if needTF
     % Generate binary and NetCDF names in each direction
     bNameI2O = sprintf('%s_%s.bin',bNameIn,bNameOut);
     bNameO2I = sprintf('%s_%s.bin',bNameOut,bNameIn);
+    %{
     % NetCDF is a little trickier, as there is an assumption of only one
     % lat-lon grid in the transform
     if CSOut && CSIn
@@ -63,6 +64,10 @@ if needTF
         NCNameI2O = sprintf('%s-to-%s_MAP_%s_GMAO.nc',NCNameIn,NCNameOut,DCPCStr);
         NCNameO2I = sprintf('%s-to-%s_MAP_%s_GMAO.nc',NCNameOut,NCNameIn,DCPCStr);
     end
+    %}
+    % Simpler now
+    NCNameI2O = sprintf('%s_%s.nc',bNameIn,bNameOut);
+    NCNameO2I = sprintf('%s_%s.nc',bNameOut,bNameIn);
     % Add the root to everything
     bNameI2O = fullfile(TFDir,bNameI2O);
     bNameO2I = fullfile(TFDir,bNameO2I);
