@@ -382,7 +382,10 @@ if flatPlot
             end
         end
     end
-    set(gca,'visible','off');
+    % This just causes problems
+    %set(gca,'visible','off');
+    % Better to do it this way
+    set(gca,'box','off','xcolor','none','ycolor','none','color','none');
 end
 
 persistent coasts
