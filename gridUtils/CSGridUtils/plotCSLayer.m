@@ -81,7 +81,9 @@ if ~mapFound
     switch lower(inParse.Results.projection)
         case 'globe'
             % Project onto globe
-            mapAx = axesm('globe','geoid',3670e3,axArgs{:});
+            %refSphere = 3670e3;
+            refSphere = referenceSphere('earth','meters');
+            mapAx = axesm('globe','geoid',refSphere,axArgs{:});
         otherwise
         %case 'flat'
             % Roll the dice - assume it's a flat projection
@@ -93,7 +95,8 @@ if ~mapFound
                 targProj = 'Robinson';
             end
             if plotStyle == iEdge
-                mapAx = axesm('globe','geoid',[1 0]);
+                refSphere = referenceSphere('earth','meters');
+                mapAx = axesm('globe','geoid',refSphere);
                 if ~isempty(axArgs)
                     set(mapAx,axArgs{:});
                 end
@@ -382,10 +385,15 @@ if flatPlot
             end
         end
     end
+    % Make the plots match those from plotGrid
+    setm(gca,'fontsize',12,'labelrotation','on','mlabellocation',45,...
+        'mlabelparallel',-10,'plabellocation',45);
     % This just causes problems
     %set(gca,'visible','off');
     % Better to do it this way
     set(gca,'box','off','xcolor','none','ycolor','none','color','none');
+    % Also resize axes to better use space
+    tightmap;
 end
 
 persistent coasts
