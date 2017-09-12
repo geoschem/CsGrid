@@ -252,6 +252,7 @@ elseif plotStyle == iEdge
     lonMatName = sprintf('lonMat_Offset%d',offsetCube);
     latMatName = sprintf('latMat_Offset%d',offsetCube);
     storedVertexData = fastExist(vtxDataFile) && ~inParse.Results.RebuildVtxData;
+			 
     % Check that the wanted files also exist
     if storedVertexData
         dataList = who('-file',vtxDataFile);
