@@ -108,6 +108,25 @@ else
         DStr = 'UU';
         PStr = 'UU';
     else
+        % Currently the algorithm below only works some of the time.
+        % A workaround is now included that checks the PE/PC and DE/DC strings
+        % against the tempest filename which should contain the correct ones.
+        % If the positioning is inconsistent then the value is over-written 
+        % with what is in the filename (ewl, 12/15/17)
+        [filepath,name,ext] = fileparts(fPath);
+        msg1 = ['*** WARNING ***\n%s positioning is not correctly ' ...
+               'interpreted in readTempest.m.\nResetting to ' ...
+               'positioning in tempest filename...\n'];
+        msg2 = ['*** WARNING ***\nPositioning is not in tempest file' ...
+                ' to validate interpretation by readTempest.m.\n' ...
+                'Beware that sometimes PE vs PC and DE vs DC are wrong.\n'];
+	PEinName = contains(name,'PE');
+	PCinName = contains(name,'PC');
+	DEinName = contains(name,'DE');
+	DCinName = contains(name,'DC');
+        if ~PEinName && ~PCinName fprintf(msg2), end
+        if ~DEinName && ~DCinName fprintf(msg2), end
+
         % If the first latitude delta is half the size of the next 4, we have a
         % "pole-centered" grid
         %dLat = latBnds(2,:) - latBnds(1,:);
@@ -123,20 +142,24 @@ else
         dLatNP = mean(dLat(2:stopPt));
         if abs(dLatNP - (2*dLatP)) < 1e-6
             PStr = 'PC';
+            if PEinName fprintf(msg1,'Latitude'), PStr = 'PE';, end
         else
             PStr = 'PE';
+            if PCinName fprintf(msg1,'Latitude'), PStr = 'PC';, end
         end
+
         % Dateline-centered or pole-centered?
         %lonBnds = ncread(fPath,'lon_bnds');
         %lonBnds = reshape(ncread(fPath,['xv_',gridChar]),[],1);
         lonBnds = mod(lonCell(1) + cast(1:(nEl(1)+1),'double').*dLon,360);
-        
         % If any of the longitude bounds are ~ 0, we are dateline-edged
         lonMis = min(lonBnds);
         if lonMis < 1e-8
             DStr = 'DE';
+            if DCinName fprintf(msg1,'Longitude'), DStr = 'DC';, end
         else
             DStr = 'DC';
+            if DEinName fprintf(msg1,'Longitude'), DStr = 'DE';, end
         end
     end
     gName = sprintf('%s%04ix%s%04i',DStr,nEl(1),PStr,nEl(2));
