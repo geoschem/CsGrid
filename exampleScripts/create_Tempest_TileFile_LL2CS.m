@@ -1,4 +1,4 @@
-cd% create_Tempest_TileFile_LL2CS.m
+% create_Tempest_TileFile_LL2CS.m
 % This script converts Tempest LL2CS nc output to binary for read by MAPL
 %
 % ~ Lizzie Lundgren
@@ -6,35 +6,40 @@ cd% create_Tempest_TileFile_LL2CS.m
 clear all; close all
 
 % Tools and work paths
-CSGridDir = '/n/home08/elundgren/GC/matlab/CSGrid/';       % CSGrid full path
-TempestFileDir = CSGridDir;  % Directory where your tempest output is
-TileFileDir = CSGridDir;     % Where you want the binary tilefile output
+CSGridDir = '/n/home08/elundgren/GC/matlab/CSGrid/';
 addpath(genpath(CSGridDir));
 
 % Set grid parameters
-Nlon = 360;
-Nlat = 180;
-NX   = 24;
-dateline = 'DC';
-polar = 'PC';
+Nlon = 1250; % longitude size
+Nlat = 700;  % latitude size
+NX   = 24;   % cubed sphere res
+dateline = 'UU'; % DE or DC for global; UU for regional
+polar = 'UU'; % PE or PC for global; UU for regional
 
-% Set Tempest LL2CS netcdf info
-cellType = [dateline '_' polar];
-tempStr = ['lon' num2str(Nlon) '_lat' num2str(Nlat)];
-NXStr = num2str(NX);
-TempestFile =  [tempStr '-to-c' NXStr '_MAP_' cellType '.nc'];
-
-% Set Tempest tile file info
+% Get strings for filenames
 lonStr = [repmat('0', 1, 4-length(num2str(Nlon))), num2str(Nlon)];
 latStr = [repmat('0', 1, 4-length(num2str(Nlat))), num2str(Nlat)];
 cStr   = [repmat('0', 1, 4-length(num2str(NX))),   num2str(NX)];
-TileFileName = [dateline lonStr 'x' polar latStr '_CF' cStr 'x6C.bin']; 
-TempestTileFile = [TileFileDir TileFileName]; 
 
-% Create tile file
-xData_temp = readTempest( [TempestFileDir, TempestFile] );
-writeTileFile( TempestTileFile, xData_temp );
+% Define tile name prefix
+tfPrefix = [dateline lonStr 'x' num2str(polar) latStr '_CF' cStr 'x6C']
+
+% Define Tempest netcdf file path (to be read)
+ncFileName =  [tfPrefix '.nc']
+ncFileDir = '~elundgren/GC/regridding/tempestremap/TileFiles/';
+ncFilePath = [ncFileDir ncFileName]
+
+% Define Tempest binary tile file path (to be written)
+binFileName = [tfPrefix '.bin']
+binFileDir = '~elundgren/GC/regridding/tempestremap/TileFiles/'; 
+binFilePath = [binFileDir binFileName] 
+
+% Read netcdf tile file
+xData_nc = readTempest( ncFilePath );
+
+% Create binary tile file
+writeTileFile( binFilePath, xData_nc );
 
 % Display contents for validation
-xData_new  = displayTileFile( TempestTileFile );
+xData_bin  = displayTileFile( binFilePath );
 
