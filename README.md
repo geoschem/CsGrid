@@ -1,5 +1,7 @@
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/geoschem/CsGrid/blob/master/LICENSE.txt)
 
+## NOTE: THIS REPOSITORY IS NO LONGER BEING DEVELOPED, AND HAS BEEN ARCHIVED.
+
 CSGrid repository README
 
 Seb Eastham created this MATLAB library of cubed sphere grid functions. 
